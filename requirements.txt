@@ -1,0 +1,10 @@
+# Database Connectivity
+pymongo==4.16.0
+dnspython>=2.6.1
+
+# Web Framework (Backend API)
+Flask==3.1.1
+Flask-Cors==5.0.0
+
+# Environment Management
+python-dotenv==1.0.1
