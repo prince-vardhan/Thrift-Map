@@ -1,63 +1,325 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>My Custom Pins Map</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thrift Map</title>
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin=""
+    >
     <style>
-        #map { height: 600px; width: 100%; }
+        :root {
+            --bg: #f4efe7;
+            --panel: #fffaf2;
+            --border: #d8cdbd;
+            --ink: #2a241f;
+            --muted: #6c6258;
+            --accent: #2f6a4f;
+            --accent-dark: #1f4936;
+            --marker: #c55c3b;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Georgia, "Times New Roman", serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at top left, rgba(197, 92, 59, 0.12), transparent 30%),
+                linear-gradient(135deg, #efe4d4, var(--bg));
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            padding: 24px 20px;
+            background: rgba(255, 250, 242, 0.94);
+            border-right: 1px solid var(--border);
+            backdrop-filter: blur(8px);
+        }
+
+        .eyebrow {
+            margin: 0 0 8px;
+            font-size: 0.78rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(2rem, 3vw, 2.6rem);
+            line-height: 1;
+        }
+
+        .intro {
+            margin: 14px 0 20px;
+            line-height: 1.5;
+            color: var(--muted);
+        }
+
+        .controls {
+            display: grid;
+            gap: 10px;
+        }
+
+        input,
+        button {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            font: inherit;
+        }
+
+        input {
+            background: #fff;
+        }
+
+        button {
+            background: var(--accent);
+            color: #fff;
+            cursor: pointer;
+            transition: background 160ms ease, transform 160ms ease;
+        }
+
+        button:hover {
+            background: var(--accent-dark);
+            transform: translateY(-1px);
+        }
+
+        .meta {
+            margin-top: 18px;
+            padding-top: 18px;
+            border-top: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .status {
+            margin-top: 12px;
+            font-size: 0.95rem;
+        }
+
+        .list {
+            margin-top: 18px;
+            display: grid;
+            gap: 10px;
+            max-height: 44vh;
+            overflow-y: auto;
+        }
+
+        .card {
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+        }
+
+        .card strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .card p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        #map {
+            min-height: 100vh;
+        }
+
+        .leaflet-popup-content {
+            font-family: Arial, sans-serif;
+            line-height: 1.45;
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+
+            .sidebar {
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+
+            #map {
+                min-height: 65vh;
+            }
+        }
     </style>
 </head>
 <body>
+    <div class="layout">
+        <aside class="sidebar">
+            <p class="eyebrow">Leaflet + MongoDB</p>
+            <h1>Thrift Map</h1>
+            <p class="intro">
+                Browse your pins, search by name or description, and load only the points in the
+                current map view when your data moves to geospatial queries.
+            </p>
 
-    <h2>My Custom Locations</h2>
-    <div class="search-container" style="padding: 10px; z-index: 1000; position: absolute; background: white; margin: 10px; border-radius: 5px; border: 1px solid #ccc;">
-    <input type="text" id="search-input" placeholder="Search my pins...">
-    <button onclick="searchLocation()">Search</button>
+            <div class="controls">
+                <input type="text" id="search-input" placeholder="Search your pins">
+                <button id="search-button" type="button">Search</button>
+                <button id="reset-button" type="button">Show all pins</button>
+            </div>
+
+            <div class="meta">
+                <div id="results-count">Loading pins...</div>
+                <div class="status" id="status-text">Connecting to the map data source.</div>
+            </div>
+
+            <div class="list" id="results-list"></div>
+        </aside>
+
+        <main id="map"></main>
     </div>
-    <div id="map"></div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""
+    ></script>
     <script>
-        // 1. Initialize the map (Centered on Bengaluru)
-        const map = L.map('map').setView([12.9716, 77.5946], 12);
+        const map = L.map("map").setView([12.9716, 77.5946], 11);
 
-        // 2. Add OpenStreetMap Tiles
-        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
+        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution: "&copy; OpenStreetMap contributors"
         }).addTo(map);
 
-        // 3. Fetch Pins from your Python API
-        fetch('/api/pins')
-            .then(res => res.json())
-            .then(data => {
-                data.forEach(pin => {
-                    // 4. Create a marker for each pin in MongoDB
-                    L.marker([pin.lat, pin.lng])
-                        .addTo(map)
-                        .bindPopup(`<b>${pin.name}</b><br>${pin.description}`);
-                });
-            })
-            .catch(err => console.error("Error loading pins:", err));
-        function searchLocation() {
-    const query = document.getElementById('search-input').value;
+        let geoJsonLayer = null;
 
-    fetch(`/api/search?q=${query}`)
-        .then(res => res.json())
-        .then(results => {
-            if (results.length > 0) {
-                // 1. Clear existing markers (optional)
-                // 2. Zoom to the first result
-                const first = results[0];
-                map.flyTo([first.lat, first.lng], 15);
-                
-                // 3. Open the popup for the result
-                L.marker([first.lat, first.lng])
-                    .addTo(map)
-                    .bindPopup(`<b>${first.name}</b><br>${first.description}`)
-                    .openPopup();
-            } else {
-                alert("No locations found!");
+        function featureToLatLng(feature) {
+            const coordinates = feature.geometry?.coordinates || [0, 0];
+            return [coordinates[1], coordinates[0]];
+        }
+
+        function updateSidebar(features) {
+            const resultsCount = document.getElementById("results-count");
+            const resultsList = document.getElementById("results-list");
+
+            resultsCount.textContent = `${features.length} pin${features.length === 1 ? "" : "s"} loaded`;
+            resultsList.innerHTML = "";
+
+            if (!features.length) {
+                resultsList.innerHTML = "<div class='card'><strong>No pins found</strong><p>Try another search or zoom out.</p></div>";
+                return;
             }
+
+            features.forEach(feature => {
+                const card = document.createElement("div");
+                card.className = "card";
+                card.innerHTML = `
+                    <strong>${feature.properties.name || "Unnamed pin"}</strong>
+                    <p>${feature.properties.description || "No description available."}</p>
+                `;
+                card.addEventListener("click", () => {
+                    const latlng = featureToLatLng(feature);
+                    map.flyTo(latlng, 15);
+                });
+                resultsList.appendChild(card);
+            });
+        }
+
+        function renderPins(geojson) {
+            const features = geojson.features || [];
+
+            if (geoJsonLayer) {
+                map.removeLayer(geoJsonLayer);
+            }
+
+            geoJsonLayer = L.geoJSON(geojson, {
+                pointToLayer: function(feature, latlng) {
+                    return L.circleMarker(latlng, {
+                        radius: 7,
+                        fillColor: "#c55c3b",
+                        color: "#7a2d16",
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.9
+                    });
+                },
+                onEachFeature: function(feature, layer) {
+                    const props = feature.properties || {};
+                    layer.bindPopup(`
+                        <strong>${props.name || "Unnamed pin"}</strong><br>
+                        ${props.description || "No description available."}
+                    `);
+                }
+            }).addTo(map);
+
+            updateSidebar(features);
+
+            if (features.length) {
+                const bounds = geoJsonLayer.getBounds();
+                if (bounds.isValid()) {
+                    map.fitBounds(bounds, { padding: [30, 30] });
+                }
+            }
+        }
+
+        async function loadAllPins() {
+            const statusText = document.getElementById("status-text");
+            statusText.textContent = "Loading all pins from MongoDB.";
+
+            const response = await fetch("/api/pins");
+            if (!response.ok) {
+                throw new Error("Failed to load pins");
+            }
+
+            const data = await response.json();
+            renderPins(data);
+            statusText.textContent = "Showing all available pins.";
+        }
+
+        async function searchPins() {
+            const query = document.getElementById("search-input").value.trim();
+            const statusText = document.getElementById("status-text");
+
+            if (!query) {
+                loadAllPins();
+                return;
+            }
+
+            statusText.textContent = `Searching for "${query}".`;
+
+            const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+            if (!response.ok) {
+                throw new Error("Search failed");
+            }
+
+            const data = await response.json();
+            renderPins(data);
+            statusText.textContent = `Showing search results for "${query}".`;
+        }
+
+        document.getElementById("search-button").addEventListener("click", searchPins);
+        document.getElementById("reset-button").addEventListener("click", loadAllPins);
+        document.getElementById("search-input").addEventListener("keydown", event => {
+            if (event.key === "Enter") {
+                searchPins();
+            }
+        });
+
+        loadAllPins().catch(error => {
+            document.getElementById("status-text").textContent = "Could not load pins. Check your Flask server and MongoDB connection.";
+            console.error(error);
         });
     </script>
 </body>
