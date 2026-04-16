@@ -1,17 +1,64 @@
-// Initialize the map
-var map = L.map('map').setView([51.505, -0.09], 13);
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Custom Pins Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map { height: 600px; width: 100%; }
+    </style>
+</head>
+<body>
 
-// Add OpenStreetMap tiles
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    <h2>My Custom Locations</h2>
+    <div class="search-container" style="padding: 10px; z-index: 1000; position: absolute; background: white; margin: 10px; border-radius: 5px; border: 1px solid #ccc;">
+    <input type="text" id="search-input" placeholder="Search my pins...">
+    <button onclick="searchLocation()">Search</button>
+    </div>
+    <div id="map"></div>
 
-// Fetch data from your Python API
-fetch('/api/locations')
-    .then(response => response.json())
-    .then(data => {
-        data.forEach(point => {
-            // Add a marker for every point in your MongoDB collection
-            L.marker([point.lat, point.lng])
-                .bindPopup(point.name)
-                .addTo(map);
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // 1. Initialize the map (Centered on Bengaluru)
+        const map = L.map('map').setView([12.9716, 77.5946], 12);
+
+        // 2. Add OpenStreetMap Tiles
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // 3. Fetch Pins from your Python API
+        fetch('/api/pins')
+            .then(res => res.json())
+            .then(data => {
+                data.forEach(pin => {
+                    // 4. Create a marker for each pin in MongoDB
+                    L.marker([pin.lat, pin.lng])
+                        .addTo(map)
+                        .bindPopup(`<b>${pin.name}</b><br>${pin.description}`);
+                });
+            })
+            .catch(err => console.error("Error loading pins:", err));
+        function searchLocation() {
+    const query = document.getElementById('search-input').value;
+
+    fetch(`/api/search?q=${query}`)
+        .then(res => res.json())
+        .then(results => {
+            if (results.length > 0) {
+                // 1. Clear existing markers (optional)
+                // 2. Zoom to the first result
+                const first = results[0];
+                map.flyTo([first.lat, first.lng], 15);
+                
+                // 3. Open the popup for the result
+                L.marker([first.lat, first.lng])
+                    .addTo(map)
+                    .bindPopup(`<b>${first.name}</b><br>${first.description}`)
+                    .openPopup();
+            } else {
+                alert("No locations found!");
+            }
         });
-    });
+    </script>
+</body>
+</html>
