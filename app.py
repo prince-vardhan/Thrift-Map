@@ -9,7 +9,7 @@ load_dotenv()
 
 app = Flask(__name__)
 
-client = MongoClient(os.getenv("MONGO_URI"))
+client = MongoClient(os.getenv("DATABASE_URL"))
 db = client.ThriftMap
 pins_collection = db.shops
 
